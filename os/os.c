@@ -76,7 +76,7 @@ error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint
 
 error_id_e os_task_activate(task_id_t task_id)
 {
-    error_id_e status = OS_OK;
+    volatile error_id_e status = OS_OK;
 
     if (NUM_TASK_MAX <= task_id)
     {
@@ -95,9 +95,8 @@ error_id_e os_task_activate(task_id_t task_id)
             tasks[current_task].state = OS_TASK_STATE_READY;
 
             // Guardar PC de la tarea que invoca a task_activate.
-            __asm ("L1: MOV @SP+, task_pc");
-//            __asm ("L1: MOV 0(SP), task_pc");
-//            __asm ("L2: ADD #2, SP");
+            __asm ("L1: MOV 2(SP), task_pc");
+            __asm ("L2: ADD #4, SP");
             tasks[current_task].task_pc = (uint16_t) task_pc;
         }
 
@@ -119,7 +118,6 @@ error_id_e os_task_terminate(void)
     tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
     num_active_tasks--;
 
-    __asm ("L5: ADD #2, SP");
     scheduler();
 
     return OS_OK;
@@ -127,7 +125,7 @@ error_id_e os_task_terminate(void)
 
 error_id_e os_task_chain(task_id_t task_id)
 {
-    error_id_e status = OS_OK;
+    volatile error_id_e status = OS_OK;
 
     if (NUM_TASK_MAX <= task_id)
     {
@@ -138,7 +136,8 @@ error_id_e os_task_chain(task_id_t task_id)
     {
         tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
         // Guardar PC de la tarea que invoca a task_activate.
-        __asm ("L4: MOV @SP+, task_pc");
+        __asm ("L4: MOV 2(SP), task_pc");
+        __asm ("L5: ADD #2, SP");
         tasks[current_task].task_pc = (uint16_t) task_pc;
 
         tasks[task_id].state = OS_TASK_STATE_READY;
@@ -175,7 +174,7 @@ void scheduler(void)
         tasks[current_task].state = OS_TASK_STATE_RUN;
 
         task_pc = (task_function_t) tasks[current_task].task_pc;
-        __asm ("L2: ADD #2, SP");
-        __asm ("L3: MOV task_pc, PC");
+        __asm ("L6: ADD #6, SP");
+        __asm ("L7: MOV task_pc, PC");
     }
 }

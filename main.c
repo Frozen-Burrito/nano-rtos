@@ -39,7 +39,7 @@ int main(void)
 	WATCHDOG_STOP;
 	DCO_CAL_1MHZ;
 
-	// Peripheral init.
+	// Peripherals init.
     HAL_TIMER_INIT();
 
     hal_gpio_init(LED_PORT, (GREEN_LED_PIN | RED_LED_PIN), GPIO_DIRECTION_OUTPUT);

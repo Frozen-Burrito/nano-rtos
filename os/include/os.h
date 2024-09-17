@@ -10,8 +10,6 @@
 
 #include <stdint.h>
 
-#include "em.h"
-
 typedef uint8_t task_id_t;
 typedef void (*task_function_t)(void);
 
