@@ -7,8 +7,44 @@
 
 #include "os.h"
 
-#define NUM_TASK_MAX    ((uint8_t) 10u)
+#define NUM_TASK_MAX    ((uint8_t) 5u)
 #define OS_TASK_ID_MAX  ((uint8_t) 0xFFu)
+#define TASK_STACK_SIZE ((uint8_t) 16u)
+
+// @brief Guarda todos los registros del contexto de la tarea actual, excepto R4.
+// Recuperar R0 (PC) del stack.
+// Mover puntero de stack de la tarea a R4.
+// Almacenar valor original de R0 en stack de la tarea.
+// Almacenar R1 -> R15 en stack de la tarea.
+#define SAVE_CONTEXT() ({\
+    __asm volatile (" NOP");\
+})
+
+// @brief Recupera todos los registros de la tarea, excepto R4.
+// Mover puntero de stack de la tarea a R4.
+// Recuperar valor original de R15 -> R5.
+// Ignorar valor original de R4.
+// Recuperar valor original de R3 -> R0 (PC).
+#define RESTORE_CONTEXT() ({\
+    __asm volatile (" MOV &current_task_stack, R4");\
+    __asm volatile (" MOV @R4+, R15");\
+    __asm volatile (" MOV @R4+, R14");\
+    __asm volatile (" MOV @R4+, R13");\
+    __asm volatile (" MOV @R4+, R12");\
+    __asm volatile (" MOV @R4+, R11");\
+    __asm volatile (" MOV @R4+, R10");\
+    __asm volatile (" MOV @R4+, R9");\
+    __asm volatile (" MOV @R4+, R8");\
+    __asm volatile (" MOV @R4+, R7");\
+    __asm volatile (" MOV @R4+, R6");\
+    __asm volatile (" MOV @R4+, R5");\
+    __asm volatile (" ADD #2, R4");\
+    __asm volatile (" MOV @R4+, R3");\
+    __asm volatile (" ADD #2, R4");\
+    __asm volatile (" MOV @R4+, SR");\
+    __asm volatile (" MOV @R4+, SP");\
+    __asm volatile (" MOV @R4, PC");\
+})
 
 typedef enum _task_state_e {
     OS_TASK_STATE_EMPTY,
@@ -19,11 +55,11 @@ typedef enum _task_state_e {
 } task_state_e;
 
 typedef struct _task_t {
-    task_state_e state;             /* Estado actual de la tarea. */
-    task_function_t task_function;  /* Dirección de inicio de la tarea. */
-    uint8_t priority;               /* Prioridad, en rango 0-255. */
-    uint8_t autostart;              /* Si es TRUE, la inicialización del sistema activa la tarea automáticamente. */
-    uint16_t task_pc;               /* Valor de PC la última vez que fue cambiada esta tarea. */
+    task_state_e state;                 /* Estado actual de la tarea. */
+    task_function_t task_function;      /* Dirección de inicio de la tarea. */
+    uint8_t priority;                   /* Prioridad, en rango 0-255. */
+    uint8_t autostart;                  /* Si es TRUE, la inicialización del sistema activa la tarea automáticamente. */
+    uint16_t stack[TASK_STACK_SIZE];    /* Memoria para guardar el contexto de la tarea (R0-R15). */
 } task_t;
 
 static task_t tasks[NUM_TASK_MAX];
@@ -31,15 +67,20 @@ static task_t tasks[NUM_TASK_MAX];
 static task_id_t current_task = OS_TASK_ID_MAX;
 static uint8_t num_active_tasks = 0u;
 
-void (*task_pc)(void);
+volatile uint16_t * current_task_stack;
+volatile uint16_t temp_register_value;
 
 error_id_e os_init(void)
 {
-    uint8_t i;
+    volatile uint8_t i;
 
     for (i = NUM_TASK_MAX; i != 0u; i--)
     {
-        tasks[(uint8_t)(i - 1)].task_pc = (uint16_t) tasks[(uint8_t)(i - 1)].task_function;
+        // Inicializar valores de PC, SP y SR en contexto de la tarea.
+        tasks[i - 1u].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[i - 1u].task_function;
+        __asm volatile (" MOV SP, temp_register_value");
+        // El 4u para compensar el espacio de stack usado por os_init().
+        tasks[i - 1u].stack[TASK_STACK_SIZE - 2u] = temp_register_value + 4u;
 
         if (OS_TASK_STATE_SUSPENDED == tasks[(uint8_t)(i - 1)].state && tasks[(uint8_t)(i - 1)].autostart)
         {
@@ -67,7 +108,6 @@ error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint
             .task_function = task_function,
             .priority = priority,
             .autostart = autostart,
-            .task_pc = (uint16_t) task_function,
         };
     }
 
@@ -76,6 +116,8 @@ error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint
 
 error_id_e os_task_activate(task_id_t task_id)
 {
+    SAVE_CONTEXT();
+
     volatile error_id_e status = OS_OK;
 
     if (NUM_TASK_MAX <= task_id)
@@ -93,24 +135,49 @@ error_id_e os_task_activate(task_id_t task_id)
         if (OS_TASK_ID_MAX != current_task)
         {
             tasks[current_task].state = OS_TASK_STATE_READY;
-
-            // Guardar PC de la tarea que invoca a task_activate.
-            __asm ("L1: MOV 2(SP), task_pc");
-            __asm ("L2: ADD #4, SP");
-            tasks[current_task].task_pc = (uint16_t) task_pc;
         }
 
         tasks[task_id].state = OS_TASK_STATE_READY;
-        tasks[task_id].task_pc = (uint16_t) tasks[task_id].task_function;
         num_active_tasks++;
 
         scheduler();
     }
-
-    // Considerar guardar PC de "return status"
-    // Considerar forma de que tarea que invoca reciba el valor de status.
-
     return status;
+}
+
+error_id_e os_task_activate_from_isr(task_id_t task_id)
+{
+    if (NUM_TASK_MAX <= task_id || OS_TASK_STATE_SUSPENDED != tasks[task_id].state)
+    {
+        return OS_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (NUM_TASK_MAX == num_active_tasks)
+    {
+        return OS_ERROR_MAX_ACTIVE_TASKS;
+    }
+
+    if (OS_TASK_ID_MAX != current_task)
+    {
+        tasks[current_task].state = OS_TASK_STATE_READY;
+    }
+
+    tasks[task_id].state = OS_TASK_STATE_READY;
+    num_active_tasks++;
+
+    __asm volatile (" ADD #2, SP");
+    // Recuperar valores originales de R11 -> R15 desde el stack (la ISR los mueve cuando inicia).
+    __asm volatile (" POP R11");
+    __asm volatile (" POP R12");
+    __asm volatile (" POP R13");
+    __asm volatile (" POP R14");
+    __asm volatile (" POP R15");
+    __asm volatile (" POP R2");
+    SAVE_CONTEXT();
+
+    scheduler();
+
+    return OS_OK;
 }
 
 error_id_e os_task_terminate(void)
@@ -125,7 +192,11 @@ error_id_e os_task_terminate(void)
 
 error_id_e os_task_chain(task_id_t task_id)
 {
+    SAVE_CONTEXT();
+
     volatile error_id_e status = OS_OK;
+
+    SAVE_CONTEXT();
 
     if (NUM_TASK_MAX <= task_id)
     {
@@ -135,13 +206,8 @@ error_id_e os_task_chain(task_id_t task_id)
     if (OS_OK == status)
     {
         tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
-        // Guardar PC de la tarea que invoca a task_activate.
-        __asm ("L4: MOV 2(SP), task_pc");
-        __asm ("L5: ADD #2, SP");
-        tasks[current_task].task_pc = (uint16_t) task_pc;
 
         tasks[task_id].state = OS_TASK_STATE_READY;
-        tasks[task_id].task_pc = (uint16_t) tasks[task_id].task_function;
 
         scheduler();
     }
@@ -173,8 +239,8 @@ void scheduler(void)
 
         tasks[current_task].state = OS_TASK_STATE_RUN;
 
-        task_pc = (task_function_t) tasks[current_task].task_pc;
-        __asm ("L6: ADD #6, SP");
-        __asm ("L7: MOV task_pc, PC");
+        current_task_stack = (uint16_t *) tasks[current_task].stack;
+
+        RESTORE_CONTEXT();
     }
 }

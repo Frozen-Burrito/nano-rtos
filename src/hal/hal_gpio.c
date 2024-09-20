@@ -21,6 +21,13 @@ void hal_gpio_init(gpio_port_t port, uint8_t mask, uint8_t config)
         else
         {
             P1DIR &= ~mask;
+            P1IE &= ~mask;
+
+            if (GPIO_INTERRUPT_FALLEDGE & config)
+            {
+                P1IES |= mask;
+                P1IE |= mask;
+            }
         }
 
         if (0u != (CONFIG_ALT_1_BIT & config))
