@@ -15,6 +15,8 @@
 
 #define EM_SLEEP_ENTER          (__bis_SR_register(LPM1_bits))
 
+#define EM_SLEEP_EXIT           (__bic_SR_register(LPM4_bits))
+
 #define WATCHDOG_STOP           (WDTCTL = WDTPW | WDTHOLD)
 
 #define DCO_CAL_1MHZ do {\

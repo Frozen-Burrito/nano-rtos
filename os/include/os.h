@@ -53,6 +53,17 @@ error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint
 error_id_e os_task_activate(task_id_t task_id);
 
 /**
+ * @brief Activa una tarea desde una ISR y guarda el contexto de la tarea anterior.
+ *
+ * @param task_id Identificador único de la tarea que será activada.
+ *
+ * @return OS_OK si activó la tarea.
+ *         OS_ERROR_INVALID_ARGUMENT si el valor de task_id no es un identificador válido o si ya existe una tarea con ese ID.
+ *         OS_ERROR_MAX_ACTIVE_TASKS si se alcanzó el límite de tareas activas.
+ */
+error_id_e os_task_activate_from_isr(task_id_t task_id);
+
+/**
  * @brief Suspende una tarea.
  *
  * La tarea no vuelve a ser ejecutada hasta que se active otra vez.
