@@ -88,6 +88,19 @@ error_id_e os_task_terminate(void);
  */
 error_id_e os_task_chain(task_id_t task_id);
 
+/**
+ * @brief Activa una alarma relativa. Cuando la alarma relativa expira, el OS activa la tarea especificada.
+ *
+ * La alarma puede ser de activación única ("one-shot") o de activación múltiple ("auto-reload").
+ *
+ * @param id Identificador único de la alarma que será activada.
+ * @param ticks Número de ticks para que expire la alarma, relativos al tick actual.
+ * @param task_to_activate Identificador único de la tarea que será activada cuando la alarma expire.
+ * @param autoreload Si es distinto de 0, el OS recarga la cuenta de la alarma y la vuelve a iniciar.
+ *
+ * @return OS_OK si el OS activó la alarma.
+ *         OS_ERROR_INVALID_ARGUMENT si id, ticks o task_to_activate tienen valores inválidos.
+ */
 error_id_e os_alarm_set_rel(alarm_id_e id, uint16_t ticks, uint8_t task_to_activate, uint8_t autoreload);
 
 void scheduler(void);

@@ -263,7 +263,7 @@ error_id_e os_task_chain(task_id_t task_id)
 
 error_id_e os_alarm_set_rel(alarm_id_e id, uint16_t ticks, uint8_t task_to_activate, uint8_t autoreload)
 {
-    if (ALARM_MAX <= id || 0 == ticks)
+    if (ALARM_MAX <= id || 0 == ticks || NUM_TASK_MAX >= task_to_activate)
     {
         return OS_ERROR_INVALID_ARGUMENT;
     }
