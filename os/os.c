@@ -7,9 +7,14 @@
 
 #include "os.h"
 
+#include <msp430.h>
+
 #define NUM_TASK_MAX    ((uint8_t) 5u)
 #define OS_TASK_ID_MAX  ((uint8_t) 0xFFu)
 #define TASK_STACK_SIZE ((uint8_t) 16u)
+
+#define ALARM_AUTORELOAD    (0x01u)
+#define ALARM_ACTIVE        (0x02u)
 
 // @brief Guarda todos los registros del contexto de la tarea actual, excepto R4.
 // Recuperar R0 (PC) del stack.
@@ -95,6 +100,13 @@ typedef struct _task_t {
     uint16_t stack[TASK_STACK_SIZE];    /* Memoria para guardar el contexto de la tarea (R0-R15). */
 } task_t;
 
+typedef struct _alarm_t {
+    uint16_t ticks;
+    uint16_t count;
+    uint8_t task_to_activate;
+    uint8_t state;
+} alarm_t;
+
 static task_t tasks[NUM_TASK_MAX];
 
 static task_id_t current_task = OS_TASK_ID_MAX;
@@ -102,6 +114,8 @@ static uint8_t num_active_tasks = 0u;
 
 volatile uint16_t * current_task_stack;
 volatile uint16_t temp_register_value;
+
+static alarm_t alarms[ALARM_MAX];
 
 error_id_e os_init(void)
 {
@@ -118,6 +132,10 @@ error_id_e os_init(void)
             num_active_tasks++;
         }
     }
+
+    // Iniciar timer para alarmas.
+    TA0CCR2 += 1000u;
+    TA0CCTL2 |= CCIE;
 
     return OS_OK;
 }
@@ -243,6 +261,28 @@ error_id_e os_task_chain(task_id_t task_id)
     return status;
 }
 
+error_id_e os_alarm_set_rel(alarm_id_e id, uint16_t ticks, uint8_t task_to_activate, uint8_t autoreload)
+{
+    if (ALARM_MAX <= id || 0 == ticks)
+    {
+        return OS_ERROR_INVALID_ARGUMENT;
+    }
+
+    alarms[id] = (alarm_t) {
+        .ticks = ticks,
+        .count = ticks,
+        .task_to_activate = task_to_activate,
+        .state = ALARM_ACTIVE,
+    };
+
+    if (autoreload)
+    {
+        alarms[id].state |= ALARM_AUTORELOAD;
+    }
+
+    return OS_OK;
+}
+
 void scheduler(void)
 {
     volatile uint8_t top_priority = 0u;
@@ -279,6 +319,68 @@ void scheduler(void)
             current_task_stack[TASK_STACK_SIZE - 2u] = temp_register_value;
         }
 
+        // Recuperar valores originales de R9 y R10 desde el stack (la función los pone en el stack por las variables locales).
+        __asm volatile (" POP R9");
+        __asm volatile (" POP R10");
+
         RESTORE_CONTEXT();
+    }
+}
+
+#pragma vector=TIMER0_A1_VECTOR
+__interrupt void timer_a0_taifg_isr(void)
+{
+    volatile uint16_t i;
+    volatile uint8_t task_activated;
+
+    if (TA0IV_TACCR2 & TA0IV)
+    {
+        task_activated = 0;
+        TA0CCR2 += 1000u;
+
+        for (i = 0; i < ALARM_MAX; i++)
+        {
+            if (ALARM_ACTIVE & alarms[i].state && !(--alarms[i].count))
+            {
+                if (OS_TASK_STATE_EMPTY != tasks[alarms[i].task_to_activate].state)
+                {
+                    tasks[alarms[i].task_to_activate].state = OS_TASK_STATE_READY;
+                    num_active_tasks++;
+                }
+
+                if (ALARM_AUTORELOAD & alarms[i].state)
+                {
+                    alarms[i].count = alarms[i].ticks;
+                }
+                else
+                {
+                    alarms[i].state &= ~ALARM_ACTIVE;
+                }
+
+                task_activated = 1;
+            }
+        }
+
+        if (task_activated)
+        {
+            if (OS_TASK_ID_MAX != current_task)
+            {
+                tasks[current_task].state = OS_TASK_STATE_READY;
+            }
+
+            // Descartar espacio de stack usado por variables locales i y task_activated.
+            __asm volatile (" ADD #4, SP");
+            // Recuperar valores originales de R11 -> R15 desde el stack (la ISR los mueve cuando inicia).
+            __asm volatile (" POP R10");
+            __asm volatile (" POP R11");
+            __asm volatile (" POP R12");
+            __asm volatile (" POP R13");
+            __asm volatile (" POP R14");
+            __asm volatile (" POP R15");
+            __asm volatile (" POP R2");
+//            SAVE_CONTEXT();
+
+            scheduler();
+        }
     }
 }

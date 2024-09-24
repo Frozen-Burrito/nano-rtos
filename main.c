@@ -59,6 +59,7 @@ int main(void)
     os_task_create(IDLE_TASK_ID, idle_task, 0u, TRUE);
 
 	os_init();
+	os_alarm_set_rel(ALARM_A, 5000UL, TASK_B_ID, 1);
 
 	scheduler();
 
@@ -69,6 +70,8 @@ int main(void)
 
 void task_a(void)
 {
+//    os_alarm_set_rel(ALARM_A, 5000UL, TASK_B_ID, 1);
+
     while (1)
     {
         EM_GLOBAL_INTERRUPT_EN;
@@ -83,6 +86,7 @@ void task_a(void)
         } while (--led_a_blinks);
 
 //        os_task_activate(TASK_B_ID);
+//        os_alarm_set_rel(ALARM_A, 100, TASK_B_ID, 0);
     }
 }
 

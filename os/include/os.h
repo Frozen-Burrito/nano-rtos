@@ -20,6 +20,12 @@ typedef enum _error_id_e {
     OS_ERROR_MAX_ACTIVE_TASKS,      /* El OS ya tiene el máximo número de tareas activas. */
 } error_id_e;
 
+typedef enum _alarm_id_e {
+    ALARM_A,
+    ALARM_B,
+    ALARM_MAX,
+} alarm_id_e;
+
 /**
  * @brief Inicializa el sistema operativo y ejecuta el scheduler por primera vez.
  *
@@ -81,6 +87,8 @@ error_id_e os_task_terminate(void);
  *         OS_ERROR_INVALID_ARGUMENT si el valor de task_id no es un identificador válido.
  */
 error_id_e os_task_chain(task_id_t task_id);
+
+error_id_e os_alarm_set_rel(alarm_id_e id, uint16_t ticks, uint8_t task_to_activate, uint8_t autoreload);
 
 void scheduler(void);
 
