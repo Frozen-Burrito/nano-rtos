@@ -103,6 +103,16 @@ error_id_e os_task_chain(task_id_t task_id);
  */
 error_id_e os_alarm_set_rel(alarm_id_e id, uint16_t ticks, uint8_t task_to_activate, uint8_t autoreload);
 
+/**
+ * @brief Cancela una alarma, evitando que expire y active una tarea.
+ *
+ * @param id Identificador único de la alarma que será cancelada.
+ *
+ * @return OS_OK si el OS canceló la alarma.
+ *         OS_ERROR_INVALID_ARGUMENT si id no es alguno de ALARM_*.
+ */
+error_id_e os_alarm_cancel(alarm_id_e id);
+
 void scheduler(void);
 
 #endif /* OS_H_ */
