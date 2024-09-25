@@ -17,8 +17,24 @@
 // Almacenar valor original de R0 en stack de la tarea.
 // Almacenar R1 -> R15 en stack de la tarea.
 #define SAVE_CONTEXT() ({\
-    __asm volatile (" NOP");\
+    __asm volatile (" MOV &current_task_stack, R4");\
+    __asm volatile (" PUSH R0");\
+    __asm volatile (" PUSH SP");\
+    __asm volatile (" PUSH SR");\
+    __asm volatile (" PUSH R3");\
+    __asm volatile (" PUSH R5");\
+    __asm volatile (" PUSH R6");\
+    __asm volatile (" PUSH R7");\
+    __asm volatile (" PUSH R8");\
+    __asm volatile (" PUSH R9");\
+    __asm volatile (" PUSH R10");\
+    __asm volatile (" PUSH R11");\
+    __asm volatile (" PUSH R12");\
+    __asm volatile (" PUSH R13");\
+    __asm volatile (" PUSH R14");\
+    __asm volatile (" PUSH R15");\
 })
+
 
 // @brief Recupera todos los registros de la tarea, excepto R4.
 // Mover puntero de stack de la tarea a R4.
@@ -196,7 +212,7 @@ error_id_e os_task_chain(task_id_t task_id)
 
     volatile error_id_e status = OS_OK;
 
-    SAVE_CONTEXT();
+//    SAVE_CONTEXT();
 
     if (NUM_TASK_MAX <= task_id)
     {
