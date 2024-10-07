@@ -17,8 +17,40 @@
 // Almacenar valor original de R0 en stack de la tarea.
 // Almacenar R1 -> R15 en stack de la tarea.
 #define SAVE_CONTEXT() ({\
-    __asm volatile (" NOP");\
+    __asm volatile (" MOV &current_task_stack, R4");\
+    __asm volatile (" MOV 0(SP), 0(R4)");\
+    __asm volatile (" ADD #2, SP");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV SP, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R2, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R3, 0(R4)");\
+    __asm volatile (" SUB #4, R4");\
+    __asm volatile (" MOV R5, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R6, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R7, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R8, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R9, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R10, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R11, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R12, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R13, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R14, 0(R4)");\
+    __asm volatile (" SUB #2, R4");\
+    __asm volatile (" MOV R15, 0(R4)");\
+    __asm volatile (" MOV R4, &current_task_stack");\
 })
+
 
 // @brief Recupera todos los registros de la tarea, excepto R4.
 // Mover puntero de stack de la tarea a R4.
@@ -43,6 +75,7 @@
     __asm volatile (" ADD #2, R4");\
     __asm volatile (" MOV @R4+, SR");\
     __asm volatile (" MOV @R4+, SP");\
+    __asm volatile (" MOV R4, &current_task_stack");\
     __asm volatile (" MOV @R4, PC");\
 })
 
@@ -78,9 +111,6 @@ error_id_e os_init(void)
     {
         // Inicializar valores de PC, SP y SR en contexto de la tarea.
         tasks[i - 1u].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[i - 1u].task_function;
-        __asm volatile (" MOV SP, temp_register_value");
-        // El 4u para compensar el espacio de stack usado por os_init().
-        tasks[i - 1u].stack[TASK_STACK_SIZE - 2u] = temp_register_value + 4u;
 
         if (OS_TASK_STATE_SUSPENDED == tasks[(uint8_t)(i - 1)].state && tasks[(uint8_t)(i - 1)].autostart)
         {
@@ -196,8 +226,6 @@ error_id_e os_task_chain(task_id_t task_id)
 
     volatile error_id_e status = OS_OK;
 
-    SAVE_CONTEXT();
-
     if (NUM_TASK_MAX <= task_id)
     {
         status = OS_ERROR_INVALID_ARGUMENT;
@@ -217,9 +245,9 @@ error_id_e os_task_chain(task_id_t task_id)
 
 void scheduler(void)
 {
-    uint8_t top_priority = 0u;
-    uint8_t top_priority_task_id = OS_TASK_ID_MAX;
-    task_id_t i;
+    volatile uint8_t top_priority = 0u;
+    volatile uint8_t top_priority_task_id = OS_TASK_ID_MAX;
+    volatile task_id_t i;
 
     if (0u != num_active_tasks)
     {
@@ -240,6 +268,16 @@ void scheduler(void)
         tasks[current_task].state = OS_TASK_STATE_RUN;
 
         current_task_stack = (uint16_t *) tasks[current_task].stack;
+
+        // Recuperar 3 espacios de 16 bits usados por variables locales y direccion de retorno.
+        __asm volatile (" ADD #6, SP");
+
+        // Workaround para problemas con asignacion de stack global por tarea.
+        if (0u == current_task_stack[TASK_STACK_SIZE - 2u])
+        {
+            __asm volatile (" MOV SP, temp_register_value");
+            current_task_stack[TASK_STACK_SIZE - 2u] = temp_register_value;
+        }
 
         RESTORE_CONTEXT();
     }

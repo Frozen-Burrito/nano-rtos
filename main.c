@@ -27,15 +27,14 @@
 
 #define TASK_A_ID       ((uint8_t) 0u)
 #define TASK_B_ID       ((uint8_t) 1u)
-#define TASK_C_ID       ((uint8_t) 2u)
 #define IDLE_TASK_ID    ((uint8_t) 3u)
 
 static void task_a(void);
 static void task_b(void);
-static void task_c(void);
 static void idle_task(void);
 
-static uint8_t led_blinks = 0u;
+static uint8_t led_a_blinks;
+static uint8_t led_b_blinks;
 
 int main(void)
 {
@@ -57,7 +56,6 @@ int main(void)
     // OS init.
 	os_task_create(TASK_A_ID, task_a, 0u, TRUE);
 	os_task_create(TASK_B_ID, task_b, 1u, FALSE);
-//	os_task_create(TASK_C_ID, task_c, 2u, FALSE);
     os_task_create(IDLE_TASK_ID, idle_task, 0u, TRUE);
 
 	os_init();
@@ -77,12 +75,12 @@ void task_a(void)
         hal_uart_send("Task A\r\n");
         hal_gpio_reset(LED_PORT, (GREEN_LED_PIN | RED_LED_PIN));
 
-        led_blinks = 5u;
+        led_a_blinks = 5u;
 
         do {
             hal_gpio_toggle(LED_PORT, (GREEN_LED_PIN | RED_LED_PIN));
             hal_timer_delay(LED_BLINK_DURATION_MS);
-        } while (led_blinks--);
+        } while (--led_a_blinks);
 
 //        os_task_activate(TASK_B_ID);
     }
@@ -90,28 +88,14 @@ void task_a(void)
 
 void task_b(void)
 {
-    led_blinks = 5u;
+    led_b_blinks = 6u;
 
     hal_uart_send("Task B\r\n");
 
     do {
         hal_gpio_toggle(LED_PORT, GREEN_LED_PIN);
         hal_timer_delay(LED_BLINK_DURATION_MS);
-    } while (led_blinks--);
-
-    os_task_terminate();
-}
-
-void task_c(void)
-{
-    led_blinks = 6u;
-
-    hal_uart_send("Task C\r\n");
-
-    do {
-        hal_gpio_toggle(LED_PORT, RED_LED_PIN);
-        hal_timer_delay(LED_BLINK_DURATION_MS);
-    } while (led_blinks--);
+    } while (--led_b_blinks);
 
     os_task_terminate();
 }
@@ -126,8 +110,6 @@ void idle_task(void)
 __interrupt void port1_isr(void)
 {
     if (0u == (BUTTON_PIN & P1IFG)) return;
-
-    // SAVE_CONTEXT();
 
     P1IFG &= ~BUTTON_PIN;
 
