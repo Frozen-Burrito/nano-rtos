@@ -23,6 +23,9 @@ typedef enum _error_id_e {
 typedef enum _alarm_id_e {
     ALARM_A,
     ALARM_B,
+    ALARM_C,
+    ALARM_D,
+    ALARM_E,
     ALARM_MAX,
 } alarm_id_e;
 

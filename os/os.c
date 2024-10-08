@@ -78,9 +78,11 @@
     __asm volatile (" ADD #2, R4");\
     __asm volatile (" MOV @R4+, R3");\
     __asm volatile (" ADD #2, R4");\
+    __asm volatile (" BIC #8, 0(R4)");\
     __asm volatile (" MOV @R4+, SR");\
     __asm volatile (" MOV @R4+, SP");\
     __asm volatile (" MOV R4, &current_task_stack");\
+    __asm volatile (" EINT");\
     __asm volatile (" MOV @R4, PC");\
 })
 
@@ -115,20 +117,22 @@ static uint8_t num_active_tasks = 0u;
 volatile uint16_t * current_task_stack;
 volatile uint16_t temp_register_value;
 
-static alarm_t alarms[ALARM_MAX];
+static volatile alarm_t alarms[ALARM_MAX];
 
 error_id_e os_init(void)
 {
     volatile uint8_t i;
 
-    for (i = NUM_TASK_MAX; i != 0u; i--)
+    i = NUM_TASK_MAX;
+    while (i--)
     {
-        // Inicializar valores de PC, SP y SR en contexto de la tarea.
-        tasks[i - 1u].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[i - 1u].task_function;
+        // Cargar valor inicial de PC para cada tarea.
+        tasks[i].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[i].task_function;
 
-        if (OS_TASK_STATE_SUSPENDED == tasks[(uint8_t)(i - 1)].state && tasks[(uint8_t)(i - 1)].autostart)
+        // Inicar tareas con autostart.
+        if (OS_TASK_STATE_SUSPENDED == tasks[i].state && tasks[i].autostart)
         {
-            tasks[(uint8_t)(i - 1)].state = OS_TASK_STATE_READY;
+            tasks[i].state = OS_TASK_STATE_READY;
             num_active_tasks++;
         }
     }
@@ -164,6 +168,7 @@ error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint
 
 error_id_e os_task_activate(task_id_t task_id)
 {
+    //TODO: Revisar esto cuando no hay una tarea ejecutandose.
     SAVE_CONTEXT();
 
     volatile error_id_e status = OS_OK;
@@ -231,6 +236,9 @@ error_id_e os_task_activate_from_isr(task_id_t task_id)
 error_id_e os_task_terminate(void)
 {
     tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
+    tasks[current_task].stack[TASK_STACK_SIZE - 2u] = 0u;
+    tasks[current_task].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[current_task].task_function;
+
     num_active_tasks--;
 
     scheduler();
@@ -303,12 +311,13 @@ void scheduler(void)
 
     if (0u != num_active_tasks)
     {
-        for (i = NUM_TASK_MAX; 0u != i; i--)
+        i = NUM_TASK_MAX;
+        while (i--)
         {
-            if (OS_TASK_STATE_READY == tasks[(uint8_t) (i - 1)].state && top_priority <= tasks[(uint8_t) (i - 1)].priority)
+            if (OS_TASK_STATE_READY == tasks[i].state && top_priority <= tasks[i].priority)
             {
-                top_priority = tasks[(uint8_t) (i - 1)].priority;
-                top_priority_task_id = (uint8_t) (i - 1);
+                top_priority = tasks[i].priority;
+                top_priority_task_id = i;
             }
         }
     }
@@ -330,10 +339,6 @@ void scheduler(void)
             __asm volatile (" MOV SP, temp_register_value");
             current_task_stack[TASK_STACK_SIZE - 2u] = temp_register_value;
         }
-
-        // Recuperar valores originales de R9 y R10 desde el stack (la función los pone en el stack por las variables locales).
-        __asm volatile (" POP R9");
-        __asm volatile (" POP R10");
 
         RESTORE_CONTEXT();
     }
@@ -390,7 +395,9 @@ __interrupt void timer_a0_taifg_isr(void)
             __asm volatile (" POP R13");
             __asm volatile (" POP R14");
             __asm volatile (" POP R15");
-            __asm volatile (" POP R2");
+            // Desactivar interrupciones en SR guardado y luego sacarlo del stack.
+            __asm volatile (" BIC #8, 0(SP)");
+            __asm volatile (" POP SR");
             SAVE_CONTEXT();
 
             scheduler();
