@@ -350,9 +350,10 @@ __interrupt void timer_a0_taifg_isr(void)
         task_activated = 0;
         TA0CCR2 += 1000u;
 
-        for (i = 0; i < ALARM_MAX; i++)
+        i = ALARM_MAX;
+        while (i--)
         {
-            if (ALARM_ACTIVE & alarms[i].state && !(--alarms[i].count))
+            if (ALARM_ACTIVE & alarms[i].state && 0u == (--alarms[i].count))
             {
                 if (OS_TASK_STATE_EMPTY != tasks[alarms[i].task_to_activate].state)
                 {
@@ -390,7 +391,7 @@ __interrupt void timer_a0_taifg_isr(void)
             __asm volatile (" POP R14");
             __asm volatile (" POP R15");
             __asm volatile (" POP R2");
-//            SAVE_CONTEXT();
+            SAVE_CONTEXT();
 
             scheduler();
         }
