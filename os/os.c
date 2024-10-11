@@ -9,7 +9,7 @@
 
 #include <msp430.h>
 
-#define NUM_TASK_MAX    ((uint8_t) 5u)
+#define NUM_TASK_MAX    ((uint8_t) 7u)
 #define OS_TASK_ID_MAX  ((uint8_t) 0xFFu)
 #define TASK_STACK_SIZE ((uint8_t) 16u)
 
@@ -78,7 +78,7 @@
     __asm volatile (" ADD #2, R4");\
     __asm volatile (" MOV @R4+, R3");\
     __asm volatile (" ADD #2, R4");\
-    __asm volatile (" BIC #8, 0(R4)");\
+    __asm volatile (" BIC #16, 0(R4)");\
     __asm volatile (" MOV @R4+, SR");\
     __asm volatile (" MOV @R4+, SP");\
     __asm volatile (" MOV R4, &current_task_stack");\
@@ -396,7 +396,7 @@ __interrupt void timer_a0_taifg_isr(void)
             __asm volatile (" POP R14");
             __asm volatile (" POP R15");
             // Desactivar interrupciones en SR guardado y luego sacarlo del stack.
-            __asm volatile (" BIC #8, 0(SP)");
+            __asm volatile (" BIC #0x00F8, 0(SP)");
             __asm volatile (" POP SR");
             SAVE_CONTEXT();
 

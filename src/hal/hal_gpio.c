@@ -50,7 +50,40 @@ void hal_gpio_init(gpio_port_t port, uint8_t mask, uint8_t config)
     }
     else if (GPIO_PORT_2 == port)
     {
+        if (0u != (GPIO_DIRECTION_OUTPUT & config))
+        {
+            P2OUT &= ~mask;
+            P2DIR |= mask;
+        }
+        else
+        {
+            P2DIR &= ~mask;
+            P2IE &= ~mask;
 
+            if (GPIO_INTERRUPT_FALLEDGE & config)
+            {
+                P2IES |= mask;
+                P2IE |= mask;
+            }
+        }
+
+        if (0u != (CONFIG_ALT_1_BIT & config))
+        {
+            P2SEL |= mask;
+        }
+        else
+        {
+            P2SEL &= ~mask;
+        }
+
+        if (0u != (CONFIG_ALT_2_BIT & config))
+        {
+            P2SEL2 |= mask;
+        }
+        else
+        {
+            P2SEL2 &= ~mask;
+        }
     }
 }
 
