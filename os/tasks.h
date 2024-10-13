@@ -9,6 +9,7 @@
 #define OS_TASKS_H_
 
 #include "os.h"
+#include "os_config.h"
 
 typedef uint8_t os_task_id_t;
 typedef void (*os_task_function_t)(void);

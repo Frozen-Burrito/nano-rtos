@@ -10,9 +10,7 @@
 
 #include <stdint.h>
 
-#define NUM_TASK_MAX    ((uint8_t) 7u)
-#define OS_TASK_ID_MAX  ((uint8_t) 0xFFu)
-#define TASK_STACK_SIZE ((uint8_t) 16u)
+#include "os_config.h"
 
 // @brief Guarda todos los registros del contexto de la tarea actual, excepto R4.
 // Recuperar R0 (PC) del stack.

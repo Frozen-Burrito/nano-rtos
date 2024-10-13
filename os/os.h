@@ -14,14 +14,7 @@
 
 #include "hal_timer.h"
 
-#define SYSTICK_BASE_TA0_0  (1)
-//#define SYSTICK_BASE_TA0_1  (1)
-//#define SYSTICK_BASE_TA0_2  (1)
-//#define SYSTICK_BASE_TA1_0  (1)
-//#define SYSTICK_BASE_TA1_1  (1)
-//#define SYSTICK_BASE_TA1_2  (1)
-
-#define SYSTICK_PERIOD      (8000u)
+#include "os_config.h"
 
 typedef enum _error_id_e {
     OS_OK,                          /* Ningún error, función completó con éxito. */
