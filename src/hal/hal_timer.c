@@ -12,9 +12,9 @@ void hal_timer_delay(uint16_t milliseconds)
 
     while (0u != count)
     {
-        TA0CCR0 = TA0R + 1000u;
-        TA0CCTL0 &= ~CCIFG;
-        while (0u == (TA0CCTL0 & CCIFG));
+        TA0CCR1 = TA0R + 8000u;
+        TA0CCTL1 &= ~CCIFG;
+        while (0u == (TA0CCTL1 & CCIFG));
         count--;
     }
 }

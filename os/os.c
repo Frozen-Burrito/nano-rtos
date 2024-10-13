@@ -7,243 +7,39 @@
 
 #include "os.h"
 
-#define NUM_TASK_MAX    ((uint8_t) 5u)
-#define OS_TASK_ID_MAX  ((uint8_t) 0xFFu)
-#define TASK_STACK_SIZE ((uint8_t) 16u)
+#include "os_private.h"
 
-// @brief Guarda todos los registros del contexto de la tarea actual, excepto R4.
-// Recuperar R0 (PC) del stack.
-// Mover puntero de stack de la tarea a R4.
-// Almacenar valor original de R0 en stack de la tarea.
-// Almacenar R1 -> R15 en stack de la tarea.
-#define SAVE_CONTEXT() ({\
-    __asm volatile (" MOV &current_task_stack, R4");\
-    __asm volatile (" MOV 0(SP), 0(R4)");\
-    __asm volatile (" ADD #2, SP");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV SP, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R2, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R3, 0(R4)");\
-    __asm volatile (" SUB #4, R4");\
-    __asm volatile (" MOV R5, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R6, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R7, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R8, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R9, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R10, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R11, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R12, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R13, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R14, 0(R4)");\
-    __asm volatile (" SUB #2, R4");\
-    __asm volatile (" MOV R15, 0(R4)");\
-    __asm volatile (" MOV R4, &current_task_stack");\
-})
+#ifdef SYSTICK_BASE_TA0_0
+#define SYSTICK_TIMER_ENABLE    HAL_TIMER_A0_0_START(SYSTICK_PERIOD)
+#endif
 
-
-// @brief Recupera todos los registros de la tarea, excepto R4.
-// Mover puntero de stack de la tarea a R4.
-// Recuperar valor original de R15 -> R5.
-// Ignorar valor original de R4.
-// Recuperar valor original de R3 -> R0 (PC).
-#define RESTORE_CONTEXT() ({\
-    __asm volatile (" MOV &current_task_stack, R4");\
-    __asm volatile (" MOV @R4+, R15");\
-    __asm volatile (" MOV @R4+, R14");\
-    __asm volatile (" MOV @R4+, R13");\
-    __asm volatile (" MOV @R4+, R12");\
-    __asm volatile (" MOV @R4+, R11");\
-    __asm volatile (" MOV @R4+, R10");\
-    __asm volatile (" MOV @R4+, R9");\
-    __asm volatile (" MOV @R4+, R8");\
-    __asm volatile (" MOV @R4+, R7");\
-    __asm volatile (" MOV @R4+, R6");\
-    __asm volatile (" MOV @R4+, R5");\
-    __asm volatile (" ADD #2, R4");\
-    __asm volatile (" MOV @R4+, R3");\
-    __asm volatile (" ADD #2, R4");\
-    __asm volatile (" MOV @R4+, SR");\
-    __asm volatile (" MOV @R4+, SP");\
-    __asm volatile (" MOV R4, &current_task_stack");\
-    __asm volatile (" MOV @R4, PC");\
-})
-
-typedef enum _task_state_e {
-    OS_TASK_STATE_EMPTY,
-    OS_TASK_STATE_SUSPENDED,
-    OS_TASK_STATE_WAIT,
-    OS_TASK_STATE_READY,
-    OS_TASK_STATE_RUN,
-} task_state_e;
-
-typedef struct _task_t {
-    task_state_e state;                 /* Estado actual de la tarea. */
-    task_function_t task_function;      /* Dirección de inicio de la tarea. */
-    uint8_t priority;                   /* Prioridad, en rango 0-255. */
-    uint8_t autostart;                  /* Si es TRUE, la inicialización del sistema activa la tarea automáticamente. */
-    uint16_t stack[TASK_STACK_SIZE];    /* Memoria para guardar el contexto de la tarea (R0-R15). */
-} task_t;
-
-static task_t tasks[NUM_TASK_MAX];
-
-static task_id_t current_task = OS_TASK_ID_MAX;
-static uint8_t num_active_tasks = 0u;
-
-volatile uint16_t * current_task_stack;
 volatile uint16_t temp_register_value;
 
 error_id_e os_init(void)
 {
     volatile uint8_t i;
 
-    for (i = NUM_TASK_MAX; i != 0u; i--)
+    i = NUM_TASK_MAX;
+    while (i--)
     {
-        // Inicializar valores de PC, SP y SR en contexto de la tarea.
-        tasks[i - 1u].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[i - 1u].task_function;
+        // Cargar valor inicial de PC para cada tarea.
+        tasks[i].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[i].task_function;
 
-        if (OS_TASK_STATE_SUSPENDED == tasks[(uint8_t)(i - 1)].state && tasks[(uint8_t)(i - 1)].autostart)
+        // Inicar tareas con autostart.
+        if (OS_TASK_STATE_SUSPENDED == tasks[i].state && tasks[i].autostart)
         {
-            tasks[(uint8_t)(i - 1)].state = OS_TASK_STATE_READY;
+            tasks[i].state = OS_TASK_STATE_READY;
             num_active_tasks++;
         }
     }
 
-    return OS_OK;
-}
-
-error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint8_t priority, uint8_t autostart)
-{
-    error_id_e status = OS_OK;
-
-    if (NUM_TASK_MAX < task_id)
-    {
-        status = OS_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (OS_OK == status)
-    {
-        tasks[task_id] = (task_t) {
-            .state = OS_TASK_STATE_SUSPENDED,
-            .task_function = task_function,
-            .priority = priority,
-            .autostart = autostart,
-        };
-    }
-
-    return status;
-}
-
-error_id_e os_task_activate(task_id_t task_id)
-{
-    SAVE_CONTEXT();
-
-    volatile error_id_e status = OS_OK;
-
-    if (NUM_TASK_MAX <= task_id)
-    {
-        status = OS_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (NUM_TASK_MAX == num_active_tasks)
-    {
-        status = OS_ERROR_MAX_ACTIVE_TASKS;
-    }
-
-    if (OS_OK == status)
-    {
-        if (OS_TASK_ID_MAX != current_task)
-        {
-            tasks[current_task].state = OS_TASK_STATE_READY;
-        }
-
-        tasks[task_id].state = OS_TASK_STATE_READY;
-        num_active_tasks++;
-
-        scheduler();
-    }
-    return status;
-}
-
-error_id_e os_task_activate_from_isr(task_id_t task_id)
-{
-    if (NUM_TASK_MAX <= task_id || OS_TASK_STATE_SUSPENDED != tasks[task_id].state)
-    {
-        return OS_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (NUM_TASK_MAX == num_active_tasks)
-    {
-        return OS_ERROR_MAX_ACTIVE_TASKS;
-    }
-
-    if (OS_TASK_ID_MAX != current_task)
-    {
-        tasks[current_task].state = OS_TASK_STATE_READY;
-    }
-
-    tasks[task_id].state = OS_TASK_STATE_READY;
-    num_active_tasks++;
-
-    __asm volatile (" ADD #2, SP");
-    // Recuperar valores originales de R11 -> R15 desde el stack (la ISR los mueve cuando inicia).
-    __asm volatile (" POP R11");
-    __asm volatile (" POP R12");
-    __asm volatile (" POP R13");
-    __asm volatile (" POP R14");
-    __asm volatile (" POP R15");
-    __asm volatile (" POP R2");
-    SAVE_CONTEXT();
-
-    scheduler();
+    // Iniciar timer para alarmas.
+    SYSTICK_TIMER_ENABLE;
 
     return OS_OK;
 }
 
-error_id_e os_task_terminate(void)
-{
-    tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
-    num_active_tasks--;
-
-    scheduler();
-
-    return OS_OK;
-}
-
-error_id_e os_task_chain(task_id_t task_id)
-{
-    SAVE_CONTEXT();
-
-    volatile error_id_e status = OS_OK;
-
-    if (NUM_TASK_MAX <= task_id)
-    {
-        status = OS_ERROR_INVALID_ARGUMENT;
-    }
-
-    if (OS_OK == status)
-    {
-        tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
-
-        tasks[task_id].state = OS_TASK_STATE_READY;
-
-        scheduler();
-    }
-
-    return status;
-}
-
-void scheduler(void)
+void scheduler_run(void)
 {
     volatile uint8_t top_priority = 0u;
     volatile uint8_t top_priority_task_id = OS_TASK_ID_MAX;
@@ -251,12 +47,13 @@ void scheduler(void)
 
     if (0u != num_active_tasks)
     {
-        for (i = NUM_TASK_MAX; 0u != i; i--)
+        i = NUM_TASK_MAX;
+        while (i--)
         {
-            if (OS_TASK_STATE_READY == tasks[(uint8_t) (i - 1)].state && top_priority <= tasks[(uint8_t) (i - 1)].priority)
+            if (OS_TASK_STATE_READY == tasks[i].state && top_priority <= tasks[i].priority)
             {
-                top_priority = tasks[(uint8_t) (i - 1)].priority;
-                top_priority_task_id = (uint8_t) (i - 1);
+                top_priority = tasks[i].priority;
+                top_priority_task_id = i;
             }
         }
     }

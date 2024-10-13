@@ -1,31 +1,18 @@
 /*
- * os.h
+ * tasks.h
  *
- *  Created on: Aug 16, 2024
+ *  Created on: Oct 13, 2024
  *      Author: Fernando Mendoza V.
  */
 
-#ifndef OS_H_
-#define OS_H_
+#ifndef OS_TASKS_H_
+#define OS_TASKS_H_
 
-#include <stdint.h>
+#include "os.h"
+#include "os_config.h"
 
-typedef uint8_t task_id_t;
-typedef void (*task_function_t)(void);
-
-typedef enum _error_id_e {
-    OS_OK,                          /* Ningún error, función completó con éxito. */
-    OS_ERROR_INVALID_ARGUMENT,      /* Uno o varios de los argumentos de una función son no-válidos. */
-    OS_ERROR_MAX_CREATED_TASKS,     /* El OS alcanzó el límite de tareas creadas. No se puede crear una nueva tarea. */
-    OS_ERROR_MAX_ACTIVE_TASKS,      /* El OS ya tiene el máximo número de tareas activas. */
-} error_id_e;
-
-/**
- * @brief Inicializa el sistema operativo y ejecuta el scheduler por primera vez.
- *
- * @return OS_OK si inicializó OS sin errores.
- */
-error_id_e os_init(void);
+typedef uint8_t os_task_id_t;
+typedef void (*os_task_function_t)(void);
 
 /**
  * @brief Registra los atributos de una nueva tarea.
@@ -39,7 +26,7 @@ error_id_e os_init(void);
  *         OS_ERROR_INVALID_ARGUMENT si el valor de task_id no es un identificador válido.
  *         OS_ERROR_MAX_CREATED_TASKS si el OS alcanzó el límite de tareas creadas.
  */
-error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint8_t priority, uint8_t autostart);
+error_id_e os_task_create(os_task_id_t task_id, os_task_function_t task_function, uint8_t priority, uint8_t autostart);
 
 /**
  * @brief Activa una tarea para que pueda ser elegida por el scheduler.
@@ -50,7 +37,7 @@ error_id_e os_task_create(task_id_t task_id, task_function_t task_function, uint
  *         OS_ERROR_INVALID_ARGUMENT si el valor de task_id no es un identificador válido.
  *         OS_ERROR_MAX_ACTIVE_TASKS si se alcanzó el límite de tareas activas.
  */
-error_id_e os_task_activate(task_id_t task_id);
+error_id_e os_task_activate(os_task_id_t task_id);
 
 /**
  * @brief Activa una tarea desde una ISR y guarda el contexto de la tarea anterior.
@@ -61,7 +48,7 @@ error_id_e os_task_activate(task_id_t task_id);
  *         OS_ERROR_INVALID_ARGUMENT si el valor de task_id no es un identificador válido o si ya existe una tarea con ese ID.
  *         OS_ERROR_MAX_ACTIVE_TASKS si se alcanzó el límite de tareas activas.
  */
-error_id_e os_task_activate_from_isr(task_id_t task_id);
+error_id_e os_task_activate_from_isr(os_task_id_t task_id);
 
 /**
  * @brief Suspende una tarea.
@@ -80,8 +67,6 @@ error_id_e os_task_terminate(void);
  * @return OS_OK si suspendió la tarea actual y activó la otra tarea.
  *         OS_ERROR_INVALID_ARGUMENT si el valor de task_id no es un identificador válido.
  */
-error_id_e os_task_chain(task_id_t task_id);
+error_id_e os_task_chain(os_task_id_t task_id);
 
-void scheduler(void);
-
-#endif /* OS_H_ */
+#endif /* OS_TASKS_H_ */

@@ -24,6 +24,9 @@ typedef uint8_t gpio_port_t;
 #define GPIO_DIRECTION_OUTPUT   ((uint8_t) 0x01u)
 #define GPIO_INTERRUPT_FALLEDGE ((uint8_t) 0x08u)
 
+#define HAL_PORT_1_OUT_VALUE    (P1OUT)
+#define HAL_PORT_2_OUT_VALUE    (P2OUT)
+
 void hal_gpio_init(gpio_port_t port, uint8_t mask, uint8_t config);
 
 void hal_gpio_set(gpio_port_t port, uint8_t mask);
