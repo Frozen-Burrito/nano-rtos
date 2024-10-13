@@ -16,8 +16,8 @@
 #define UART_PORT               (GPIO_PORT_1)
 #define UART_PIN_TX             (0x04u)
 
-#define UART_SEND_MAX_LEN       ((uint8_t) 32u)
-#define UART_BITRATE_DIVIDER    ((uint16_t) 104u)
+#define UART_SEND_MAX_LEN       ((uint8_t) 16u)
+#define UART_BITRATE_DIVIDER    ((uint16_t) 833u)
 
 void hal_uart_init(void);
 
