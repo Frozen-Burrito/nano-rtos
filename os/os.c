@@ -14,6 +14,7 @@
 #endif
 
 volatile uint16_t temp_register_value;
+volatile uint8_t scheduler_from_isr;
 
 error_id_e os_init(void)
 {
@@ -60,22 +61,26 @@ void scheduler_run(void)
 
     if (OS_TASK_ID_MAX != top_priority_task_id)
     {
-        current_task = top_priority_task_id;
+        tasks[top_priority_task_id].state = OS_TASK_STATE_RUN;
 
-        tasks[current_task].state = OS_TASK_STATE_RUN;
-
-        current_task_stack = (uint16_t *) tasks[current_task].stack;
-
-        // Recuperar 3 espacios de 16 bits usados por variables locales y direccion de retorno.
-        __asm volatile (" ADD #6, SP");
-
-        // Workaround para problemas con asignacion de stack global por tarea.
-        if (0u == current_task_stack[TASK_STACK_SIZE - 2u])
+        if (current_task != top_priority_task_id)
         {
+            if (OS_TASK_ID_MAX != current_task)
+            {
+                SAVE_CONTEXT();
+            }
+
+            current_task = top_priority_task_id;
+            current_task_stack = (uint16_t *) tasks[current_task].stack;
+
+            // Recuperar 3 espacios de 16 bits usados por variables locales y direccion de retorno.
+            __asm volatile (" ADD #6, SP");
+
             __asm volatile (" MOV SP, temp_register_value");
             current_task_stack[TASK_STACK_SIZE - 2u] = temp_register_value;
-        }
 
-        RESTORE_CONTEXT();
+            RESTORE_CONTEXT();
+        }
     }
 }
+
