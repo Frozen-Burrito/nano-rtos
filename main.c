@@ -52,7 +52,7 @@ int main(void)
 
     hal_uart_init();
 
-    hal_uart_send("Reset\r\n");
+    hal_uart_send("Reset\r\n", 7u);
 
     EM_GLOBAL_INTERRUPT_EN;
 
@@ -83,20 +83,34 @@ void producer_task(void)
 {
     static error_id_e status;
     static uint8_t failed_attempts_remaining = 5u;
-    static uint8_t item = 'A';
+    static uint8_t msg[] = "Hola,mundo";
+    static uint8_t msg_cursor;
+    static uint8_t send_pass_log[] = "SP val = _\r\n";
 
     while (1)
     {
-        status = os_queue_send(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 20u);
+        status = os_queue_send(TEST_QUEUE_ID, (void *) &(msg[msg_cursor]), (tick_type_t) 20u);
+//        status = os_queue_send(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 20u);
+
+        hal_timer_delay(200u);
 
         if (OS_OK == status)
         {
-            hal_uart_send("Send PASS value = A\r\n");
+            send_pass_log[9] = msg[msg_cursor];
+            hal_uart_send(send_pass_log, 12u);
+            send_pass_log[9] = '_';
+
+            msg_cursor++;
+            if (10 <= msg_cursor)
+            {
+                msg_cursor = 0u;
+            }
+
             failed_attempts_remaining = 5u;
         }
         else
         {
-            hal_uart_send("Send FAIL, queue FULL, 5 ticks\r\n");
+            hal_uart_send("SF FULL, 20\r\n", 13u);
             failed_attempts_remaining--;
 
             if (0u == failed_attempts_remaining)
@@ -114,6 +128,7 @@ void consumer_task(void)
     static error_id_e status;
     static uint8_t * item;
     static uint8_t count;
+    static uint8_t rx_success_msg[] = {'R', 'P', ' ', '_', '\r', '\n'};
 
     // Primer receive falla si producer_task no envía algo inmediatamente.
     // ticks_to_wait es 0, entonces consumer_task no pasa a estado WAIT.
@@ -121,31 +136,37 @@ void consumer_task(void)
 
     if (OS_OK == status)
     {
-        hal_uart_send(item);
+        rx_success_msg[3] = *item;
+        hal_uart_send(rx_success_msg, 6u);
+        rx_success_msg[3] = '_';
     }
     else
     {
-        hal_uart_send("Receive FAIL, queue EMPTY\r\n");
+        hal_uart_send("RF, EMPTY\r\n", 11u);
     }
 
     // consumer_task espera indeterminadamente a que producer_task envíe algo en la queue.
     status = os_queue_receive(TEST_QUEUE_ID, (void *) &item, OS_MAX_TICKS);
     // Si la tarea llega a este hal_uart_send(), significa que recibió un elemento de la queue.
-    hal_uart_send(item);
+    rx_success_msg[3] = *item;
+    hal_uart_send(rx_success_msg, 6u);
+    rx_success_msg[3] = '0';
 
     // Recibir 5 elementos, luego dejar de recibir.
     count = 5u;
     while (count--)
     {
-        status = os_queue_receive(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 30u);
+        status = os_queue_receive(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 1000u);
 
         if (OS_OK == status)
         {
-            hal_uart_send(item);
+            rx_success_msg[3] = *item;
+            hal_uart_send(rx_success_msg, 6u);
+            rx_success_msg[3] = '0';
         }
         else
         {
-            hal_uart_send("Receive FAIL, waited 30 ticks\r\n");
+            hal_uart_send("RF EMPTY, 30\r\n", 14u);
         }
     }
 
@@ -163,11 +184,11 @@ void another_task(void)
     // os_queue_send debe fallar con OS_ERROR_INVALID_ARGUMENT.
     if (OS_ERROR_INVALID_ARGUMENT == status)
     {
-        hal_uart_send("Send missing permission\r\n");
+        hal_uart_send("Send missing permission\r\n", 25u);
     }
     else
     {
-        hal_uart_send("Another task send OK\r\n");
+        hal_uart_send("Another task send OK\r\n", 22u);
     }
 
     os_task_terminate();
@@ -177,7 +198,6 @@ void idle_task(void)
 {
     while (1)
     {
-//        hal_uart_send("Idle task\r\n");
         EM_SLEEP_ENTER;
     }
 }

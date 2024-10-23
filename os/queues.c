@@ -10,8 +10,8 @@
 
 #include "em.h"
 
-// Workaround temporal. Queues usan n-1 espacios, desperdiciando el último. Considerar modificar algoritmo de queues para aprovecharlo.
-//TODO: Modificar send y receive para que usen todos los elementos de data, en vez de length - 1.
+// Workaround temporal. Queues usan n-1 espacios, desperdiciando el último. Modificar algoritmo de queues para aprovecharlo.
+//TODO: Modificar send y receive para que usen todos los elementos de queue_t.data, en vez de length - 1.
 typedef struct _queue_t {
     uint16_t data[OS_QUEUE_LEN_MAX + 1u];   /* Arreglo de punteros a los datos. */
     uint16_t tasks_waiting;                 /* MSB son tareas esperando espacio libre, LSB son tareas esperando al menos un elemento. */
@@ -31,7 +31,7 @@ error_id_e os_queue_init(queue_id_t id, uint8_t length, uint8_t access)
     }
 
     queues[id] = (queue_t) {
-        .length = length + 1,
+        .length = length + 1,               /*TODO: Eliminar + 1*/
         .tasks_with_access = access,
         .tail = 0u,
         .head = 0u,
@@ -73,10 +73,6 @@ error_id_e os_queue_send(queue_id_t id, const void * item, tick_type_t ticks_to_
             tasks[current_task].state = OS_TASK_STATE_WAIT;
             tasks[current_task].ticks_to_wait = ticks_to_wait;
 
-            //TODO: Unstacking.
-//            __asm volatile (" PUSH #0xC112");
-//
-//            SAVE_CONTEXT();
             scheduler_run();
 
             status = OS_OK;

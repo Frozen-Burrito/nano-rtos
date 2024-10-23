@@ -34,6 +34,14 @@ error_id_e os_init(void)
         }
     }
 
+    // TODO: Pruebas temporales para manejo de stack. Hace falta integrar esto con el servicio create_task.
+    // 40 bytes de stack por tarea.
+    tasks[0].stack[TASK_STACK_SIZE - 2u] = 0x03FE;
+    tasks[1].stack[TASK_STACK_SIZE - 2u] = 0x03D6;
+    tasks[2].stack[TASK_STACK_SIZE - 2u] = 0x03AE;
+    tasks[3].stack[TASK_STACK_SIZE - 2u] = 0x0386;
+
+
     // Iniciar timer para alarmas.
     SYSTICK_TIMER_ENABLE;
 
@@ -75,9 +83,6 @@ void scheduler_run(void)
 
             // Recuperar 3 espacios de 16 bits usados por variables locales y direccion de retorno.
             __asm volatile (" ADD #6, SP");
-
-            __asm volatile (" MOV SP, temp_register_value");
-            current_task_stack[TASK_STACK_SIZE - 2u] = temp_register_value;
 
             RESTORE_CONTEXT();
         }
