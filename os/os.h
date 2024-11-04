@@ -12,6 +12,7 @@
 
 #include <msp430.h>
 
+#include "em.h"
 #include "hal_timer.h"
 
 #include "os_config.h"

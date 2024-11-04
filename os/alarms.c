@@ -125,7 +125,7 @@ __interrupt void systick_isr(void)
         /*TODO: Encontrar forma de que etiqueta scheduler_run esté disponible fuera de os_private. */
 //        scheduler_run();
 //        __asm volatile (" BR #scheduler_run");
-        __asm volatile (" BR #0xC408");
+        __asm volatile (" BR #0xC40E");
     }
 }
 

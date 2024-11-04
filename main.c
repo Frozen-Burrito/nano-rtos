@@ -27,7 +27,6 @@
 #define PRODUCER_TASK_ID    ((uint8_t) 0u)
 #define CONSUMER_TASK_ID    ((uint8_t) 1u)
 #define ANOTHER_TASK_ID     ((uint8_t) 2u)
-#define IDLE_TASK_ID        ((uint8_t) 3u)
 
 #define TEST_QUEUE_ID       ((queue_id_t) 0u)
 #define TEST_QUEUE_LENGTH   ((uint8_t) 3u)
@@ -38,7 +37,6 @@
 static void producer_task(void);
 static void consumer_task(void);
 static void another_task(void);
-static void idle_task(void);
 
 int main(void)
 {
@@ -60,8 +58,6 @@ int main(void)
 	os_task_create(PRODUCER_TASK_ID, producer_task, 3u, FALSE);
 	os_task_create(CONSUMER_TASK_ID, consumer_task, 3u, TRUE);
 	os_task_create(ANOTHER_TASK_ID, another_task, 4u, FALSE);
-
-    os_task_create(IDLE_TASK_ID, idle_task, 0u, TRUE);
 
     // Solo las tareas productora y consumidora tienen permiso para acceder a TEST_QUEUE.
     os_queue_init(TEST_QUEUE_ID, TEST_QUEUE_LENGTH, (0x01u << PRODUCER_TASK_ID) | (0x01u << CONSUMER_TASK_ID));
@@ -90,7 +86,6 @@ void producer_task(void)
     while (1)
     {
         status = os_queue_send(TEST_QUEUE_ID, (void *) &(msg[msg_cursor]), (tick_type_t) 20u);
-//        status = os_queue_send(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 20u);
 
         hal_timer_delay(200u);
 
@@ -192,12 +187,4 @@ void another_task(void)
     }
 
     os_task_terminate();
-}
-
-void idle_task(void)
-{
-    while (1)
-    {
-        EM_SLEEP_ENTER;
-    }
 }

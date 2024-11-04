@@ -17,7 +17,7 @@ error_id_e os_task_create(os_task_id_t task_id, os_task_function_t task_function
 {
     error_id_e status = OS_OK;
 
-    if (NUM_TASK_MAX < task_id)
+    if (NUM_TASK_MAX <= task_id)
     {
         status = OS_ERROR_INVALID_ARGUMENT;
     }

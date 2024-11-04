@@ -39,7 +39,6 @@ error_id_e os_init(void)
     tasks[0].stack[TASK_STACK_SIZE - 2u] = 0x03FE;
     tasks[1].stack[TASK_STACK_SIZE - 2u] = 0x03D6;
     tasks[2].stack[TASK_STACK_SIZE - 2u] = 0x03AE;
-    tasks[3].stack[TASK_STACK_SIZE - 2u] = 0x0386;
 
 
     // Iniciar timer para alarmas.
@@ -87,5 +86,11 @@ void scheduler_run(void)
             RESTORE_CONTEXT();
         }
     }
+#if OS_CUSTOM_IDLE_TASK == 0
+    else
+    {
+        EM_SLEEP_ENTER;
+    }
+#endif
 }
 
