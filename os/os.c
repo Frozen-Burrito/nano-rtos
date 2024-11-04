@@ -14,6 +14,7 @@
 #endif
 
 volatile uint16_t temp_register_value;
+volatile uint8_t scheduler_from_isr;
 
 error_id_e os_init(void)
 {
@@ -32,6 +33,14 @@ error_id_e os_init(void)
             num_active_tasks++;
         }
     }
+
+    // TODO: Pruebas temporales para manejo de stack. Hace falta integrar esto con el servicio create_task.
+    // 40 bytes de stack por tarea.
+    tasks[0].stack[TASK_STACK_SIZE - 2u] = 0x03FE;
+    tasks[1].stack[TASK_STACK_SIZE - 2u] = 0x03D6;
+    tasks[2].stack[TASK_STACK_SIZE - 2u] = 0x03AE;
+    tasks[3].stack[TASK_STACK_SIZE - 2u] = 0x0386;
+
 
     // Iniciar timer para alarmas.
     SYSTICK_TIMER_ENABLE;
@@ -60,22 +69,23 @@ void scheduler_run(void)
 
     if (OS_TASK_ID_MAX != top_priority_task_id)
     {
-        current_task = top_priority_task_id;
+        tasks[top_priority_task_id].state = OS_TASK_STATE_RUN;
 
-        tasks[current_task].state = OS_TASK_STATE_RUN;
-
-        current_task_stack = (uint16_t *) tasks[current_task].stack;
-
-        // Recuperar 3 espacios de 16 bits usados por variables locales y direccion de retorno.
-        __asm volatile (" ADD #6, SP");
-
-        // Workaround para problemas con asignacion de stack global por tarea.
-        if (0u == current_task_stack[TASK_STACK_SIZE - 2u])
+        if (current_task != top_priority_task_id)
         {
-            __asm volatile (" MOV SP, temp_register_value");
-            current_task_stack[TASK_STACK_SIZE - 2u] = temp_register_value;
-        }
+            if (OS_TASK_ID_MAX != current_task)
+            {
+                SAVE_CONTEXT();
+            }
 
-        RESTORE_CONTEXT();
+            current_task = top_priority_task_id;
+            current_task_stack = (uint16_t *) tasks[current_task].stack;
+
+            // Recuperar 3 espacios de 16 bits usados por variables locales y direccion de retorno.
+            __asm volatile (" ADD #6, SP");
+
+            RESTORE_CONTEXT();
+        }
     }
 }
+

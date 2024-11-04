@@ -92,6 +92,16 @@ __interrupt void systick_isr(void)
         }
     }
 
+    i = NUM_TASK_MAX;
+    while (i--)
+    {
+        if (OS_TASK_STATE_WAIT == tasks[i].state && 0u == (--tasks[i].ticks_to_wait))
+        {
+            tasks[i].state = OS_TASK_STATE_READY;
+            task_activated = 1;
+        }
+    }
+
     if (task_activated)
     {
         if (OS_TASK_ID_MAX != current_task)
@@ -111,9 +121,11 @@ __interrupt void systick_isr(void)
         // Desactivar interrupciones en SR guardado y luego sacarlo del stack.
         __asm volatile (" BIC #0x00F8, 0(SP)");
         __asm volatile (" POP SR");
-        SAVE_CONTEXT();
 
-        scheduler_run();
+        /*TODO: Encontrar forma de que etiqueta scheduler_run esté disponible fuera de os_private. */
+//        scheduler_run();
+//        __asm volatile (" BR #scheduler_run");
+        __asm volatile (" BR #0xC408");
     }
 }
 

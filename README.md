@@ -2,6 +2,15 @@
 
 Sistema operativo en tiempo real para MSP430.
 
+## Características
+
+El proyecto está basado en FreeRTOS y OSEK, combinando algunas de las características de ambos:
+
+- Scheduler "preemptive".
+- Tareas con distintas prioridades.
+- Alarmas relativas (equivalentes a software timers de FreeRTOS).
+- Queues.
+
 ## Comenzar
 
 Para comenzar a trabajar en el proyecto, seguir estos pasos:

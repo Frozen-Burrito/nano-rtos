@@ -19,10 +19,10 @@
 // Almacenar R1 -> R15 en stack de la tarea.
 #define SAVE_CONTEXT() ({\
     __asm volatile (" MOV &current_task_stack, R4");\
-    __asm volatile (" MOV 0(SP), 0(R4)");\
-    __asm volatile (" ADD #2, SP");\
+    __asm volatile (" MOV 4(SP), 0(R4)");\
     __asm volatile (" SUB #2, R4");\
     __asm volatile (" MOV SP, 0(R4)");\
+    __asm volatile (" ADD #6, 0(R4)");\
     __asm volatile (" SUB #2, R4");\
     __asm volatile (" MOV R2, 0(R4)");\
     __asm volatile (" SUB #2, R4");\
@@ -98,6 +98,7 @@ typedef struct _task_t {
     task_function_t task_function;      /* Dirección de inicio de la tarea. */
     uint8_t priority;                   /* Prioridad, en rango 0-255. */
     uint8_t autostart;                  /* Si es TRUE, la inicialización del sistema activa la tarea automáticamente. */
+    uint16_t ticks_to_wait;             /* Número máximo de ticks que puede pasar la tarea en estado wait. */
     uint16_t stack[TASK_STACK_SIZE];    /* Memoria para guardar el contexto de la tarea (R0-R15). */
 } task_t;
 
@@ -105,6 +106,8 @@ extern volatile task_t tasks[];
 
 extern volatile task_id_t current_task;
 extern volatile uint8_t num_active_tasks;
+
+extern volatile uint8_t scheduler_from_isr;
 
 volatile uint16_t * current_task_stack;
 

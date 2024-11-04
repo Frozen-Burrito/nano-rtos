@@ -11,7 +11,7 @@
  * Número máximo de tareas que puede ejecutar el sistema operativo. Usar os_task_create cuando ya hay este
  * número de tareas ejecutándose resulta en un error.
  */
-#define NUM_TASK_MAX    ((uint8_t) 7u)
+#define NUM_TASK_MAX    ((uint8_t) 4u)
 
 /*
  * ID numérico máximo para una tarea.
@@ -34,5 +34,18 @@
 
 /* Número de cuentas del timer base por cada tick (segundos por tick / clock Hz). */
 #define SYSTICK_PERIOD      (8000u)
+
+/* Habilitar soporte para queues. */
+#define OS_QUEUES           (1)
+
+/* Número máximo de queues que pueden crearse. */
+#ifdef OS_QUEUES
+#define OS_QUEUE_COUNT_MAX  (2)
+#endif /* OS_QUEUES */
+
+/* Número máximo de elementos que puede contener una queue. */
+#ifdef OS_QUEUES
+#define OS_QUEUE_LEN_MAX    (5)
+#endif /* OS_QUEUES */
 
 #endif /* OS_CONFIG_H_ */

@@ -37,9 +37,6 @@ error_id_e os_task_create(os_task_id_t task_id, os_task_function_t task_function
 
 error_id_e os_task_activate(os_task_id_t task_id)
 {
-    //TODO: Revisar esto cuando no hay una tarea ejecutandose.
-    SAVE_CONTEXT();
-
     volatile error_id_e status = OS_OK;
 
     if (NUM_TASK_MAX <= task_id)
@@ -95,7 +92,6 @@ error_id_e os_task_activate_from_isr(os_task_id_t task_id)
     __asm volatile (" POP R14");
     __asm volatile (" POP R15");
     __asm volatile (" POP R2");
-    SAVE_CONTEXT();
 
     scheduler_run();
 
@@ -117,8 +113,6 @@ error_id_e os_task_terminate(void)
 
 error_id_e os_task_chain(os_task_id_t task_id)
 {
-    SAVE_CONTEXT();
-
     volatile error_id_e status = OS_OK;
 
     if (NUM_TASK_MAX <= task_id)
