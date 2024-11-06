@@ -6,6 +6,8 @@
  */
 #include <stdint.h>
 
+#include <msp430.h>
+
 #include "em.h"
 #include "hal_gpio.h"
 #include "hal_timer.h"
@@ -19,24 +21,44 @@
 #define FALSE       ((uint8_t) 0u)
 #define TRUE        ((uint8_t) 1u)
 
-/* GPIO */
-#define GREEN_LED_PIN       ((uint8_t) 0x01u)
-#define RED_LED_PIN         ((uint8_t) 0x40u)
+/* GPIO - UART - Puerto 1 */
+#define UART_A_RX_PIN       ((uint8_t) 0x02u)
+#define UART_B_RX_PIN       ((uint8_t) 0x08u)
+#define UART_C_RX_PIN       ((uint8_t) 0x10u)
+
+#define UART_BIT_COUNT      ((uint8_t) 9u)
+#define UART_BIT_TIME_TICKS ((uint8_t) 10u)
+
+/* GPIO - Puerto 2 */
+#define PWM_R_PIN           ((uint8_t) 0x02u)
+#define PWM_G_PIN           ((uint8_t) 0x08u)
+#define PWM_B_PIN           ((uint8_t) 0x20u)
+
+#define PWM_PERIOD_TICKS    ((tick_type_t) 24u)
 
 /* OS tasks */
-#define PRODUCER_TASK_ID    ((uint8_t) 0u)
-#define CONSUMER_TASK_ID    ((uint8_t) 1u)
-#define ANOTHER_TASK_ID     ((uint8_t) 2u)
+#define PWM_PERIOD_TASK_ID  ((uint8_t) 0u)
+#define PWM_R_TASK_ID       ((uint8_t) 1u)
+#define PWM_G_TASK_ID       ((uint8_t) 2u)
+#define PWM_B_TASK_ID       ((uint8_t) 3u)
+#define UART_A_RX_TASK_ID   ((uint8_t) 4u)
 
-#define TEST_QUEUE_ID       ((queue_id_t) 0u)
-#define TEST_QUEUE_LENGTH   ((uint8_t) 3u)
+#define PWM_PACKET_QUEUE_ID             ((queue_id_t) 0u)
+#define PWM_PACKET_QUEUE_LENGTH         ((uint8_t) 4u)
 
-#define INITIAL_PRODUCER_DELAY_TICKS    ((tick_type_t) 100u)
-#define ANOTHER_TASK_DELAY_TICKS        ((tick_type_t) 5000u)
+typedef struct _pwm_packet_t {
+    uint8_t uart_pin;
+    uint8_t duty_cycle;
+} pwm_packet_t;
 
-static void producer_task(void);
-static void consumer_task(void);
-static void another_task(void);
+static void pwm_r_task(void);
+static void pwm_g_task(void);
+static void pwm_b_task(void);
+static void pwm_period_task(void);
+static void uart_a_rx_task(void);
+static void idle_task(void);
+
+static uint8_t uart_a_rx_bits_pending;
 
 int main(void)
 {
@@ -46,7 +68,10 @@ int main(void)
 	// Peripherals init.
     HAL_TIMER_INIT(0);
 
-    hal_gpio_init(GPIO_PORT_1, (GREEN_LED_PIN | RED_LED_PIN), GPIO_DIRECTION_OUTPUT);
+    hal_gpio_init(GPIO_PORT_1, (UART_A_RX_PIN | UART_B_RX_PIN | UART_C_RX_PIN), GPIO_DIRECTION_OUTPUT);
+
+    hal_gpio_init(GPIO_PORT_2, (PWM_R_PIN | PWM_G_PIN | PWM_B_PIN), GPIO_DIRECTION_OUTPUT);
+    hal_gpio_reset(GPIO_PORT_2, (PWM_R_PIN | PWM_G_PIN | PWM_B_PIN));
 
     hal_uart_init();
 
@@ -55,18 +80,19 @@ int main(void)
     EM_GLOBAL_INTERRUPT_EN;
 
     // OS init.
-	os_task_create(PRODUCER_TASK_ID, producer_task, 3u, FALSE);
-	os_task_create(CONSUMER_TASK_ID, consumer_task, 3u, TRUE);
-	os_task_create(ANOTHER_TASK_ID, another_task, 4u, FALSE);
+	os_task_create(PWM_PERIOD_TASK_ID, pwm_period_task, 2u, TRUE);
+	os_task_create(PWM_R_TASK_ID, pwm_r_task, 1u, FALSE);
+	os_task_create(PWM_G_TASK_ID, pwm_g_task, 1u, FALSE);
+	os_task_create(PWM_B_TASK_ID, pwm_b_task, 1u, FALSE);
+//	os_task_create(UART_A_RX_TASK_ID, uart_a_rx_task, 3u, FALSE);
 
-    // Solo las tareas productora y consumidora tienen permiso para acceder a TEST_QUEUE.
-    os_queue_init(TEST_QUEUE_ID, TEST_QUEUE_LENGTH, (0x01u << PRODUCER_TASK_ID) | (0x01u << CONSUMER_TASK_ID));
+	os_task_create(4u, idle_task, 0u, TRUE);
 
-    // Delays iniciales para probar queues.
-    os_alarm_set_rel(ALARM_A, INITIAL_PRODUCER_DELAY_TICKS, PRODUCER_TASK_ID, FALSE);
-    os_alarm_set_rel(ALARM_B, ANOTHER_TASK_DELAY_TICKS, ANOTHER_TASK_ID, FALSE);
+	os_queue_init(PWM_PACKET_QUEUE_ID, PWM_PACKET_QUEUE_LENGTH, (PWM_PERIOD_TASK_ID | UART_A_RX_TASK_ID));
 
 	os_init();
+
+	os_alarm_set_rel(ALARM_A, PWM_PERIOD_TICKS, PWM_PERIOD_TASK_ID, TRUE);
 
 	scheduler_run();
 
@@ -75,116 +101,82 @@ int main(void)
 	return 0;
 }
 
-void producer_task(void)
+void uart_a_rx_task(void)
 {
-    static error_id_e status;
-    static uint8_t failed_attempts_remaining = 5u;
-    static uint8_t msg[] = "Hola,mundo";
-    static uint8_t msg_cursor;
-    static uint8_t send_pass_log[] = "SP val = _\r\n";
+    static uint8_t rx_buf;
+    static pwm_packet_t pwm_packet;
 
+    if (0u == --uart_a_rx_bits_pending && 0u != P1IN & UART_A_RX_PIN)
+    {
+        // Dato completo, todos los bits recibidos y stop bit es 1.
+        pwm_packet.uart_pin = UART_A_RX_PIN;
+        pwm_packet.duty_cycle = rx_buf;
+        rx_buf = 0u;
+
+        // Enviar paquete con nuevo pwm a la queue.
+//        os_queue_send(PWM_PACKET_QUEUE_ID, (void *) &pwm_packet, (tick_type_t) 0u);
+
+        P1IE |= UART_A_RX_PIN;
+    }
+    else
+    {
+        rx_buf >>= 1u;
+        rx_buf |= (P1IN & UART_A_RX_PIN) << 6u;
+
+        os_alarm_set_rel(ALARM_E, UART_BIT_TIME_TICKS, UART_A_RX_TASK_ID, FALSE);
+    }
+
+    os_task_terminate();
+}
+
+void pwm_period_task(void)
+{
+    hal_gpio_set(GPIO_PORT_2, (PWM_R_PIN | PWM_G_PIN | PWM_B_PIN));
+
+    os_alarm_set_rel(ALARM_B, 1u, PWM_R_TASK_ID, FALSE);
+    os_alarm_set_rel(ALARM_C, 1u, PWM_G_TASK_ID, FALSE);
+    os_alarm_set_rel(ALARM_D, 1u, PWM_B_TASK_ID, FALSE);
+
+    os_task_terminate();
+}
+
+void pwm_r_task(void)
+{
+    hal_gpio_reset(GPIO_PORT_2, PWM_R_PIN);
+    os_task_terminate();
+}
+
+void pwm_g_task(void)
+{
+    hal_gpio_reset(GPIO_PORT_2, PWM_G_PIN);
+    os_task_terminate();
+}
+
+void pwm_b_task(void)
+{
+    hal_gpio_reset(GPIO_PORT_2, PWM_B_PIN);
+    os_task_terminate();
+}
+
+void idle_task(void)
+{
     while (1)
     {
-        status = os_queue_send(TEST_QUEUE_ID, (void *) &(msg[msg_cursor]), (tick_type_t) 20u);
-
-        hal_timer_delay(200u);
-
-        if (OS_OK == status)
-        {
-            send_pass_log[9] = msg[msg_cursor];
-            hal_uart_send(send_pass_log, 12u);
-            send_pass_log[9] = '_';
-
-            msg_cursor++;
-            if (10 <= msg_cursor)
-            {
-                msg_cursor = 0u;
-            }
-
-            failed_attempts_remaining = 5u;
-        }
-        else
-        {
-            hal_uart_send("SF FULL, 20\r\n", 13u);
-            failed_attempts_remaining--;
-
-            if (0u == failed_attempts_remaining)
-            {
-                break;
-            }
-        }
+        EM_SLEEP_ENTER;
     }
-
-    os_task_terminate();
 }
 
-void consumer_task(void)
+#pragma vector=PORT1_VECTOR
+__interrupt void virtual_uart_rx_isr(void)
 {
-    static error_id_e status;
-    static uint8_t * item;
-    static uint8_t count;
-    static uint8_t rx_success_msg[] = {'R', 'P', ' ', '_', '\r', '\n'};
-
-    // Primer receive falla si producer_task no envía algo inmediatamente.
-    // ticks_to_wait es 0, entonces consumer_task no pasa a estado WAIT.
-    status = os_queue_receive(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 0u);
-
-    if (OS_OK == status)
+    if (P1IFG & UART_A_RX_PIN)
     {
-        rx_success_msg[3] = *item;
-        hal_uart_send(rx_success_msg, 6u);
-        rx_success_msg[3] = '_';
+        P1IFG &= ~UART_A_RX_PIN;
+        P1IE &= ~UART_A_RX_PIN;
+
+        uart_a_rx_bits_pending = UART_BIT_COUNT;
+
+        os_alarm_set_rel(ALARM_E, UART_BIT_TIME_TICKS + (UART_BIT_TIME_TICKS >> 2), UART_A_RX_TASK_ID, FALSE);
     }
-    else
-    {
-        hal_uart_send("RF, EMPTY\r\n", 11u);
-    }
-
-    // consumer_task espera indeterminadamente a que producer_task envíe algo en la queue.
-    status = os_queue_receive(TEST_QUEUE_ID, (void *) &item, OS_MAX_TICKS);
-    // Si la tarea llega a este hal_uart_send(), significa que recibió un elemento de la queue.
-    rx_success_msg[3] = *item;
-    hal_uart_send(rx_success_msg, 6u);
-    rx_success_msg[3] = '0';
-
-    // Recibir 5 elementos, luego dejar de recibir.
-    count = 5u;
-    while (count--)
-    {
-        status = os_queue_receive(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 1000u);
-
-        if (OS_OK == status)
-        {
-            rx_success_msg[3] = *item;
-            hal_uart_send(rx_success_msg, 6u);
-            rx_success_msg[3] = '0';
-        }
-        else
-        {
-            hal_uart_send("RF EMPTY, 30\r\n", 14u);
-        }
-    }
-
-    os_task_terminate();
 }
 
-void another_task(void)
-{
-    static error_id_e status;
-    static uint8_t item = 'Z';
-
-    status = os_queue_send(TEST_QUEUE_ID, (void *) &item, (tick_type_t) 0u);
-
-    // another_task no tiene permiso para usar TEST_QUEUE.
-    // os_queue_send debe fallar con OS_ERROR_INVALID_ARGUMENT.
-    if (OS_ERROR_INVALID_ARGUMENT == status)
-    {
-        hal_uart_send("Send missing permission\r\n", 25u);
-    }
-    else
-    {
-        hal_uart_send("Another task send OK\r\n", 22u);
-    }
-
-    os_task_terminate();
-}

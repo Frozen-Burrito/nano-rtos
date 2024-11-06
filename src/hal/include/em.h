@@ -13,7 +13,7 @@
 #define EM_GLOBAL_INTERRUPT_EN  (__bis_SR_register(GIE))
 #define EM_GLOBAL_INTERRUPT_DIS (__bic_SR_register(GIE))
 
-#define EM_SLEEP_ENTER          (__bis_SR_register(GIE | LPM0_bits))
+#define EM_SLEEP_ENTER          (__bis_SR_register(GIE | LPM1_bits))
 
 #define EM_SLEEP_EXIT           (__bic_SR_register(LPM4_bits))
 

@@ -11,7 +11,7 @@
  * Número máximo de tareas que puede ejecutar el sistema operativo. Usar os_task_create cuando ya hay este
  * número de tareas ejecutándose resulta en un error.
  */
-#define NUM_TASK_MAX    ((uint8_t) 3u)
+#define NUM_TASK_MAX    ((uint8_t) 5u)
 
 /*
  * ID numérico máximo para una tarea.
@@ -36,14 +36,14 @@
 #define SYSTICK_PERIOD      (8000u)
 
 /* Definir una tarea idle personalizada (1). Si es (0), el OS activa LPM0 cuando no tiene tareas listas. */
-#define OS_CUSTOM_IDLE_TASK (0)
+#define OS_CUSTOM_IDLE_TASK (1)
 
 /* Habilitar soporte para queues. */
 #define OS_QUEUES           (1)
 
 /* Número máximo de queues que pueden crearse. */
 #ifdef OS_QUEUES
-#define OS_QUEUE_COUNT_MAX  (2)
+#define OS_QUEUE_COUNT_MAX  (1)
 #endif /* OS_QUEUES */
 
 /* Número máximo de elementos que puede contener una queue. */

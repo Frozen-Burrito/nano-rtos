@@ -101,7 +101,7 @@ error_id_e os_task_activate_from_isr(os_task_id_t task_id)
 error_id_e os_task_terminate(void)
 {
     tasks[current_task].state = OS_TASK_STATE_SUSPENDED;
-    tasks[current_task].stack[TASK_STACK_SIZE - 2u] = 0u;
+//    tasks[current_task].stack[TASK_STACK_SIZE - 2u] = 0u;
     tasks[current_task].stack[TASK_STACK_SIZE - 1u] = (uint16_t) tasks[current_task].task_function;
 
     num_active_tasks--;
