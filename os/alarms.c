@@ -122,10 +122,8 @@ __interrupt void systick_isr(void)
         __asm volatile (" BIC #0x00F8, 0(SP)");
         __asm volatile (" POP SR");
 
-        /*TODO: Encontrar forma de que etiqueta scheduler_run esté disponible fuera de os_private. */
-//        scheduler_run();
-//        __asm volatile (" BR #scheduler_run");
-        __asm volatile (" BR #0xC154");
+        __asm volatile (" .global scheduler_run");
+        __asm volatile (" BR #scheduler_run");
     }
 }
 

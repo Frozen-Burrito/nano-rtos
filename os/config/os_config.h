@@ -11,7 +11,7 @@
  * Número máximo de tareas que puede ejecutar el sistema operativo. Usar os_task_create cuando ya hay este
  * número de tareas ejecutándose resulta en un error.
  */
-#define NUM_TASK_MAX    ((uint8_t) 5u)
+#define NUM_TASK_MAX    ((uint8_t) 7u)
 
 /*
  * ID numérico máximo para una tarea.
@@ -22,7 +22,7 @@
  * Tamaño en palabras del stack dedicado para una tarea. Debe ser al menos de 16 palabras (32 bytes) para almacenar
  * los 16 registros en los cambios de contexto.
  */
-#define TASK_STACK_SIZE ((uint8_t) 16u)
+#define TASK_STACK_SIZE ((uint8_t) 15u)
 
 /* Timer de hardware usado como base para systick. */
 #define SYSTICK_BASE_TA0_0  (1)
@@ -36,7 +36,7 @@
 #define SYSTICK_PERIOD      (8000u)
 
 /* Definir una tarea idle personalizada (1). Si es (0), el OS activa LPM0 cuando no tiene tareas listas. */
-#define OS_CUSTOM_IDLE_TASK (1)
+#define OS_CUSTOM_IDLE_TASK (0)
 
 /* Habilitar soporte para queues. */
 #define OS_QUEUES           (1)

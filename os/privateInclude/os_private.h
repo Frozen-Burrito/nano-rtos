@@ -27,7 +27,7 @@
     __asm volatile (" MOV R2, 0(R4)");\
     __asm volatile (" SUB #2, R4");\
     __asm volatile (" MOV R3, 0(R4)");\
-    __asm volatile (" SUB #4, R4");\
+    __asm volatile (" SUB #2, R4");\
     __asm volatile (" MOV R5, 0(R4)");\
     __asm volatile (" SUB #2, R4");\
     __asm volatile (" MOV R6, 0(R4)");\
@@ -71,7 +71,6 @@
     __asm volatile (" MOV @R4+, R7");\
     __asm volatile (" MOV @R4+, R6");\
     __asm volatile (" MOV @R4+, R5");\
-    __asm volatile (" ADD #2, R4");\
     __asm volatile (" MOV @R4+, R3");\
     __asm volatile (" ADD #2, R4");\
     __asm volatile (" BIC #16, 0(R4)");\

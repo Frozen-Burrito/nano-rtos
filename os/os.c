@@ -35,12 +35,15 @@ error_id_e os_init(void)
     }
 
     // TODO: Pruebas temporales para manejo de stack. Hace falta integrar esto con el servicio create_task.
-    // 40 bytes de stack por tarea.
     tasks[0].stack[TASK_STACK_SIZE - 2u] = 0x03FE;
-    tasks[1].stack[TASK_STACK_SIZE - 2u] = 0x03DE;
-    tasks[2].stack[TASK_STACK_SIZE - 2u] = 0x03CE;
-    tasks[3].stack[TASK_STACK_SIZE - 2u] = 0x03B6;
-    tasks[4].stack[TASK_STACK_SIZE - 2u] = 0x03AE;
+
+    tasks[1].stack[TASK_STACK_SIZE - 2u] = 0x03E2;
+    tasks[2].stack[TASK_STACK_SIZE - 2u] = 0x03D6;
+    tasks[3].stack[TASK_STACK_SIZE - 2u] = 0x03CA;
+
+    tasks[4].stack[TASK_STACK_SIZE - 2u] = 0x03BE; //32, prueba con 24
+    tasks[5].stack[TASK_STACK_SIZE - 2u] = 0x03A2;
+    tasks[6].stack[TASK_STACK_SIZE - 2u] = 0x0386;
 
     // Iniciar timer para alarmas.
     SYSTICK_TIMER_ENABLE;
@@ -90,6 +93,7 @@ void scheduler_run(void)
 #if OS_CUSTOM_IDLE_TASK == 0
     else
     {
+        current_task = OS_TASK_ID_MAX;
         EM_SLEEP_ENTER;
     }
 #endif
